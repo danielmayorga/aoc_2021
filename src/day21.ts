@@ -1,3 +1,5 @@
+export = {};
+
 function part1(players: [number,number]){
     let turns = 0;
     let score:[number,number] = [0,0];
