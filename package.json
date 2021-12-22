@@ -1,0 +1,25 @@
+{
+  "name": "aoc",
+  "version": "1.0.0",
+  "description": "Advent of Code : 2021 in typescript",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "keywords": [
+    "aoc",
+    "advent",
+    "of",
+    "code",
+    "2021"
+  ],
+  "author": "danielmayorga",
+  "license": "MIT",
+  "dependencies": {
+    "heap-js":"2.1.6"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.2",
+    "@types/node": "^16.11.11"
+  }
+}
