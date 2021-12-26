@@ -12,8 +12,8 @@ function attemptMoveEast(grid:Grid, row:number, column:number):boolean{
     if (grid[row][column] !== '>') return false;
     let goTocolumn = (column+1)%grid[0].length;
     if (grid[row][goTocolumn] === '.'){
-        grid[row][goTocolumn] = '<';
-        grid[row][column] = 'x';
+        grid[row][goTocolumn] = '<';//set ">" to "<" to prevent duplicate moves
+        grid[row][column] = 'x';//set new "." to "x" to prevent shift of other elements
         return true;
     }
     return false;
@@ -23,7 +23,7 @@ function attemptMoveSouth(grid:Grid, row:number, column:number):boolean{
     if (grid[row][column] !== 'v') return false;
     let goToRow = (row+1)%grid.length;
     if (grid[goToRow][column] === '.'){
-        grid[goToRow][column] = '^';
+        grid[goToRow][column] = '^';//same idea as attemptMoveEast
         grid[row][column] = 'x';
         return true;
     }
@@ -37,6 +37,7 @@ function moveEast(grid: Grid):boolean{
             moved = attemptMoveEast(grid, row, column) || moved;
         }
         for(let column = 0; column <grid[0].length; column++){
+            //after an attempt, replace x with . and "<" with ">"
             if (grid[row][column]==='x'){ 
                 grid[row][column] = '.';
             }

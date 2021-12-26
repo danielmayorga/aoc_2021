@@ -3,22 +3,7 @@ import { Heap } from 'heap-js';
 type Color = "A"|"B"|"C"|"D";
 const ALL_COLORS = ["A","B","C","D"] as ["A", "B", "C","D"];
 
-//Graph Traversal
-interface Hallway{
-    left?: Hallway;
-    right?: Hallway;
-    id: number;
-    sideRoom?: SideRoom;
-}
-
-interface SideRoom{
-    above: Hallway|SideRoom;
-    id: number;
-    below?: SideRoom;
-    color: Color;
-}
-
-//Graph State, we call it Board
+//Board State
 type Entry = Color|null;
 //amphipod Id to room
 interface Board{
@@ -29,14 +14,6 @@ interface Board{
    D: Entry[];
 }
 //Graph and GraphState
-interface Diagram{
-    hallways: Hallway[];
-    A: SideRoom[];
-    B: SideRoom[];
-    C: SideRoom[];
-    D: SideRoom[];
-    initialBoard: Board;
-}
 
 function strigifyBoard(board: Board):string{
     let array: string[] = [];
@@ -63,6 +40,22 @@ function boardComplete(board: Board){
     return true;
 }
 
+const sideRoomLocation: Record<Color, number> = {
+    'A': 2,
+    'B': 4,
+    'C': 6,
+    'D': 8,
+}
+
+const roomLocations = Object.values(sideRoomLocation);
+
+const moveCost: Record<Color, number> = {
+    A: 1,
+    B: 10,
+    C: 100,
+    D: 1000,
+};
+
 function cloneBoard(board: Board):Board{
     return{
         hallways: [...board.hallways],
@@ -74,66 +67,56 @@ function cloneBoard(board: Board):Board{
 }
 
 //helper functions to traverse graph
-function *nextLeftSpace(space: SideRoom, board: Board):Iterable<[Board,number]>{
-    let iter:SideRoom|Hallway= space;
-    let moves=0;
-    
-    while('above' in iter){
-        iter = iter.above;
-        moves++;
-    }
+function *nextLeftSpace(sideroomColor: Color, sideRoomId: number, board: Board):Iterable<[Board,number]>{
+    //move up by the siderRoomId to hallway(thus plus one)
+    let moves=sideRoomId+1;
 
     //type inference is a bit buggy with all these while loops, so we need a new variable aside from `iter`
-    let hallway: Hallway|undefined = iter;
-
-    while(hallway != null && board.hallways[hallway.id] == null){
-        if (hallway.sideRoom == null){
+    let hallwayId: number = sideRoomLocation[sideroomColor];
+    for( ;hallwayId >= 0 && board.hallways[hallwayId] == null; hallwayId--,moves++){
+        if (!roomLocations.includes(hallwayId)){
             //get a new board
             let result = cloneBoard(board);
             //swap values
-            let color = result[space.color][space.id] as Color;
-            result[space.color][space.id] = null;
-            result.hallways[hallway.id] = color;
+            let diffColor = result[sideroomColor][sideRoomId] as Color;
+            result[sideroomColor][sideRoomId] = null;
+            result.hallways[hallwayId] = diffColor;
             //calculate cost
-            let cost = moves*moveCost[color];
+            let cost = moves*moveCost[diffColor];
 
             yield [result, cost];
         }
-        hallway = hallway.left;
-        moves++;
     }
 }
 
-function *nextRightSpace(space: SideRoom, board: Board):Iterable<[Board,number]>{
-    let iter:SideRoom|Hallway= space;
-    let moves=0;
-    while('above' in iter){
-        iter = iter.above;
-        moves++;
-    }
+function *nextRightSpace(sideroomColor: Color, sideRoomId: number, board: Board):Iterable<[Board,number]>{
+    //move up by the siderRoomId to hallway(thus plus one)
+    let moves=sideRoomId+1;
 
     //type inference is a bit buggy with all these while loops, so we need a new variable aside from `iter`
-    let hallway: Hallway|undefined = iter;
-
-    while(hallway != null && board.hallways[hallway.id] == null){
-        if (hallway.sideRoom == null){
+    let hallwayId: number = sideRoomLocation[sideroomColor];
+    for( ;hallwayId < board.hallways.length && board.hallways[hallwayId] == null; hallwayId++,moves++){
+        if (!roomLocations.includes(hallwayId)){
             //get a new board
             let result = cloneBoard(board);
             //swap values
-            let color = result[space.color][space.id] as Color;
-            result[space.color][space.id] = null;
-            result.hallways[hallway.id] = color;
+            let diffColor = result[sideroomColor][sideRoomId] as Color;
+            result[sideroomColor][sideRoomId] = null;
+            result.hallways[hallwayId] = diffColor;
             //calculate cost
-            let cost = moves*moveCost[color];
+            let cost = moves*moveCost[diffColor];
 
             yield [result, cost];
         }
-        hallway = hallway.right;
-        moves++;
     }
 }
 
-function canGoToHallway(color: Color, board:Board, diagram: Diagram): SideRoom|null {
+/**
+ * @arguemnt color - sideroom color
+ * @argument board - board state
+ * @returns sideroom id if it can go to the hallway, null otherwise
+ */
+function canGoToHallway(color: Color, board:Board): number|null {
     let candidates = board[color];
     let i=0;
     while(candidates.length > i &&  candidates[i]==null){
@@ -144,7 +127,7 @@ function canGoToHallway(color: Color, board:Board, diagram: Diagram): SideRoom|n
     let topSpot = i;
     while(candidates.length > i){
         if (candidates[i]!==color){
-            return diagram[color][topSpot];
+            return topSpot;
         }
         i++;
     }
@@ -155,25 +138,18 @@ function canEnter(color: Color, board: Board){
     return board[color].every(elem => elem == null || elem === color);//testin
 }
 
-const sideRoomLocation: Record<Color, number> = {
-    'A': 2,
-    'B': 4,
-    'C': 6,
-    'D': 8,
-}
-
-function canGoToSideRoom(space: Hallway, board: Board): [Board,number]|null{
-    let entry = board.hallways[space.id];
+function canGoToSideRoom(hallwayId: number, board: Board): [Board,number]|null{
+    let entry = board.hallways[hallwayId];
     //if you're an empty space or if sideroom is not legal return null
     if ( entry == null || !canEnter(entry, board)){
         return null;
     }
     //now try to traverse to the space
     let moves = 1;
-    let currentIndex = space.id;
+    let currentIndex = hallwayId;
     let destinationColor: Color = entry;
     let destinationIndex = sideRoomLocation[destinationColor];
-    let [start,end] = space.id < destinationIndex? [currentIndex+1,destinationIndex] : [destinationIndex, currentIndex-1];
+    let [start,end] = hallwayId < destinationIndex? [currentIndex+1,destinationIndex] : [destinationIndex, currentIndex-1];
     for(let i=start; i<=end; i++){
         //something in the way, can't go to sideroom
         if(board.hallways[i]!=null){
@@ -190,11 +166,10 @@ function canGoToSideRoom(space: Hallway, board: Board): [Board,number]|null{
     sideroomIndex--;
     moves--;
     //swap sideroom with hallway
-
     //first clone the board
     let result = cloneBoard(board);
     let color = destinationColor;
-    result.hallways[space.id] = null;
+    result.hallways[hallwayId] = null;
     result[destinationColor][sideroomIndex] = color;
     //calculate cost
     let cost = moveCost[color]*moves;
@@ -203,10 +178,10 @@ function canGoToSideRoom(space: Hallway, board: Board): [Board,number]|null{
 
 }
 
-function *boardMoves(board: Board, diagram: Diagram):Iterable<[Board,number]>{
+function *boardMoves(board: Board):Iterable<[Board,number]>{
     //try to prioritize hallway movements
-    for(let hallway of diagram.hallways){
-        let val = canGoToSideRoom(hallway, board);
+    for(let hallwayId=0; hallwayId<board.hallways.length;hallwayId++){
+        let val = canGoToSideRoom(hallwayId, board);
         if(val!=null){
             yield val;
             //if you can go to the sideroom, don't try anything else
@@ -215,12 +190,12 @@ function *boardMoves(board: Board, diagram: Diagram):Iterable<[Board,number]>{
     }
     //try to move from sideroom to hallway
     for(let color of ALL_COLORS){
-        let sideRoom = canGoToHallway(color, board, diagram);
-        if (sideRoom != null){
-            for (let left of nextLeftSpace(sideRoom, board)){
+        let sideRoomId = canGoToHallway(color, board);
+        if (sideRoomId != null){
+            for (let left of nextLeftSpace(color, sideRoomId, board)){
                 yield left;
             }
-            for (let right of nextRightSpace(sideRoom, board)){
+            for (let right of nextRightSpace(color, sideRoomId, board)){
                 yield right;
             }
         }
@@ -234,76 +209,17 @@ interface Input{
     'D': Color[];
 }
 
-function getDiagram(input:Input): Diagram{
-
-    //construct Graph...do I need it...probably not, but I committed to this, god dammit
-    //construct hallway
-    let root: Hallway = {id: 0}
-    let hallways: Hallway[]= [root];
-    let before = root;
-    for(let i=1; i<11; i++){
-        let current: Hallway = { 
-            id: i,
-            left: before,
-        };
-        before.right=current;
-        before = current;
-        hallways.push(current);
-    }
-
-    //construct the side rooms
-    let sideRooms = {} as Record<Color, SideRoom[]>;
-    let sideRoomOrder:Color[] = ['A','B','C','D'];
-    for(let i=0; i<sideRoomOrder.length; i++){
-        let color = sideRoomOrder[i];
-        let hallwayIndex = 2 +i*2;
-        let hallway = hallways[hallwayIndex];
-        //create first sideroom
-        let sideRoom:SideRoom = {
-            above: hallway,
-            color: color,
-            id: 0
-        };
-        // associate sideroom to hallway
-        hallway.sideRoom = sideRoom;
-        // set it in our record
-        sideRooms[color] = [sideRoom];
-    }
-
-    for (let sideroom of Object.values(sideRooms)){
-        let before = sideroom[0]
-        for(let i=1; i<input.A.length; i++){
-            let color = before.color;
-            let current: SideRoom = {
-                above: before,
-                color,
-                id: before.id+1
-            };
-            before.below = current;
-            before = current;
-            sideroom.push(current);
-        }
-    }
-
+/** get initial board...pretty much adds the hallway state to our input */
+function getInitialBoard(input:Input): Board{
     return ({
-        ...sideRooms,
-        hallways,
-        initialBoard:{
             ...input,
             hallways:Array(11).fill(null)
-        },
-    });
+        });
 }
 
-const moveCost: Record<Color, number> = {
-    A: 1,
-    B: 10,
-    C: 100,
-    D: 1000,
-};
-
+/** Dijskra's algorith, our heap is board state and prioritized by board move cost */
 function playGame(input: Input):Number{
-    let diagram = getDiagram(input);
+    let initialBoard = getInitialBoard(input);
     let visitedBoardState = new Set<string>();//strigified board
     let boardCost = new Map<string, number>();
     let priorityQueue = new Heap<Board>((a,b)=>{
@@ -314,7 +230,6 @@ function playGame(input: Input):Number{
     let priorBoard = new Map<string, [Board, number]>();//to show steps...we don't reference it for memory reasons
 
     //initialization
-    let initialBoard = diagram.initialBoard;
     let initialKey = strigifyBoard(initialBoard);
     boardCost.set(initialKey, 0);
     priorityQueue.push(initialBoard);
@@ -328,12 +243,12 @@ function playGame(input: Input):Number{
             const currentCost = boardCost.get(key) as number;//current cost
 
             if(boardComplete(board)){
-                storeSteps(board, priorBoard);
+                storeSteps(board, priorBoard);//store the moves to print out later for fun :P 
                 return currentCost;
             }
             
             //get every legal move and push the new board state
-            for(let [nextBoard, cost] of boardMoves(board, diagram)){
+            for(let [nextBoard, cost] of boardMoves(board)){
                 let key = strigifyBoard(nextBoard);
                 if (!visitedBoardState.has(key)){
                     let nextBoardCost = boardCost.get(key) ?? Number.MAX_SAFE_INTEGER;
@@ -387,6 +302,7 @@ function storeSteps(board: Board, priorBoard:Map<string, [Board, number]>){
     storedSteps.push(store.reverse());
 }
 
+/** Prints the steps for how to optimally solve the game */
 function printSteps(){
     console.log("Steps Part 1:");
     let board1 = storedSteps[0] as Board[];

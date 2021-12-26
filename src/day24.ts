@@ -64,10 +64,6 @@ function day24(commands: CommandChunk[], iterator: () => Generator<number, void,
     return answer.join('');
 }
 
-
-
-
-
 function part1(commands: CommandChunk[]){
     function *part1MaxGenerator(){
         for(let num = 9; num>0; num--){
