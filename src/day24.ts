@@ -33,9 +33,10 @@ function runCommand(z:number, w: number, command:CommandChunk):number{
     return z;
 }
 
-function part1(commands: CommandChunk[]){
+function day24(commands: CommandChunk[], iterator: () => Generator<number, void, unknown>){
     const toKey = (step: number, value: number) => step+","+value;
     let fails = new Set<string>();
+    let iterate = [...iterator()];
     
     function recurseSolve(stack: number[], z: number=0):boolean{
         if (stack.length === 14){
@@ -47,7 +48,7 @@ function part1(commands: CommandChunk[]){
             return false;
         }
 
-        for(let num=9; num>0; num--){
+        for(let num of iterate){
             stack.push(num);
             let newZ = runCommand(z, num, commands[stack.length-1]);
             if(recurseSolve(stack, newZ)){
@@ -63,35 +64,26 @@ function part1(commands: CommandChunk[]){
     return answer.join('');
 }
 
-//same code, just line 80 is iterating through 1->9
-function part2(commands: CommandChunk[]){
-    const toKey = (step: number, value: number) => step+","+value;
-    let fails = new Set<string>();
-    
-    function recurseSolve(stack: number[], z: number=0):boolean{
-        if (stack.length === 14){
-            return z===0;
-        }
 
-        let key = toKey(stack.length, z);
-        if (fails.has(key)){
-            return false;
-        }
 
-        for(let num=1; num<9; num++){
-            stack.push(num);
-            let newZ = runCommand(z, num, commands[stack.length-1]);
-            if(recurseSolve(stack, newZ)){
-                return true;
-            }
-            stack.pop();
+
+
+function part1(commands: CommandChunk[]){
+    function *part1MaxGenerator(){
+        for(let num = 9; num>0; num--){
+            yield num;
         }
-        fails.add(toKey(stack.length,z));
-        return false;
     }
-    let answer:number[] = [];
-    recurseSolve(answer);
-    return answer.join('');
+    return day24(commands, part1MaxGenerator);
+}
+
+function part2(commands: CommandChunk[]){
+    function *part2MinGenerator(){
+        for(let num =1; num<=9; num++){
+            yield num;
+        }
+    }
+    return day24(commands, part2MinGenerator);
 }
 
 let commands = parseCommands();
